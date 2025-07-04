@@ -129,6 +129,10 @@ class WhiskersOrchestrator {
                     this.handleReadyForInput(message);
                     break;
 
+                case 'choice_selected':
+                    this.handleChoiceSelected(message);
+                    break;
+
                 case 'minigame_status':
                     this.handleMinigameStatus(message);
                     break;
@@ -175,11 +179,10 @@ class WhiskersOrchestrator {
         this.gameState.currentChoices = message.choices || [];
         this.gameState.currentSelection = message.currentSelection || 0;
         
-        // Update UI to show choices and current selection
         this.modules.ui.updateChoices(this.gameState.currentChoices);
         this.modules.ui.updateChoiceSelection(this.gameState.currentSelection);
         
-        this.log(`${message.choices.length} choices available, selection: ${this.gameState.currentSelection + 1}`, 'presenter');
+        this.log(`${message.choices.length} choices available`, 'presenter');
     }
 
     handleReadyForInput(message) {
@@ -189,6 +192,12 @@ class WhiskersOrchestrator {
         this.modules.ui.updateInputState(message.context, message.awaitingInputType);
         
         this.log(`Ready for input: ${message.awaitingInputType}`, 'presenter');
+    }
+
+    handleChoiceSelected(message) {
+        this.gameState.currentSelection = message.choiceIndex;
+        this.modules.ui.updateChoiceSelection(this.gameState.currentSelection);
+        this.log(`Choice ${message.choiceIndex + 1} selected: ${message.choiceText}`, 'presenter');
     }
 
     handleMinigameStatus(message) {
@@ -205,6 +214,16 @@ class WhiskersOrchestrator {
         this.gameState.presenterConnected = true;
         this.log('Presenter app connected and ready', 'success');
         this.modules.ui.updatePresenterStatus(true);
+        
+        // Request status update after short delay
+        setTimeout(() => {
+            if (this.modules.mqtt && this.modules.mqtt.isConnected()) {
+                this.modules.mqtt.publish({
+                    type: 'status_request',
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }, 500);
     }
 
     handleScrollStatus(message) {
@@ -231,6 +250,10 @@ class WhiskersOrchestrator {
             return;
         }
 
+        // Update local selection immediately for responsive UI
+        this.gameState.currentSelection = choiceIndex;
+        this.modules.ui.updateChoiceSelection(choiceIndex);
+
         const message = {
             type: 'make_choice',
             timestamp: new Date().toISOString(),
@@ -238,11 +261,27 @@ class WhiskersOrchestrator {
         };
 
         this.sendMQTTMessage(message);
-        this.log(`Sent: Select choice ${choiceIndex + 1}: ${this.gameState.currentChoices[choiceIndex]?.text}`, 'mqtt');
+        this.log(`Selected choice ${choiceIndex + 1}: ${this.gameState.currentChoices[choiceIndex]?.text}`, 'mqtt');
     }
 
     navigateChoice(direction) {
         if (!this.canSendInput()) return;
+
+        // Update local selection immediately for responsive feel
+        if (this.gameState.currentChoices.length > 0) {
+            let newSelection = this.gameState.currentSelection;
+            
+            if (direction === 'up') {
+                newSelection = Math.max(0, newSelection - 1);
+            } else if (direction === 'down') {
+                newSelection = Math.min(this.gameState.currentChoices.length - 1, newSelection + 1);
+            }
+            
+            if (newSelection !== this.gameState.currentSelection) {
+                this.gameState.currentSelection = newSelection;
+                this.modules.ui.updateChoiceSelection(newSelection);
+            }
+        }
 
         const message = {
             type: 'navigate_choice',
@@ -251,7 +290,7 @@ class WhiskersOrchestrator {
         };
 
         this.sendMQTTMessage(message);
-        this.log(`Sent: Navigate ${direction}`, 'mqtt');
+        this.log(`Navigate ${direction}`, 'mqtt');
     }
 
     scrollStory(direction) {

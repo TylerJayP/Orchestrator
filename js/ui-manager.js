@@ -122,9 +122,15 @@ class UIManager {
                 playerInfo.join(', ') : 'Unknown';
         }
 
-        // Update awaiting input display
+        // Update awaiting input display with selection info
         if (this.elements.awaitingInput) {
-            this.elements.awaitingInput.textContent = gameState.awaitingInputType || 'None';
+            let awaitingText = gameState.awaitingInputType || 'None';
+            
+            if (gameState.currentChoices && gameState.currentChoices.length > 0) {
+                awaitingText += ` (${gameState.currentSelection + 1}/${gameState.currentChoices.length})`;
+            }
+            
+            this.elements.awaitingInput.textContent = awaitingText;
         }
     }
 
@@ -195,6 +201,17 @@ class UIManager {
 
         if (choices.length === 0) {
             this.elements.choicesDisplay.innerHTML = '<div class="no-choices">No choices available</div>';
+            
+            // Reset all choice buttons
+            this.elements.choiceButtons.forEach((btn, index) => {
+                if (btn) {
+                    btn.textContent = `${index + 1}️⃣ Choice ${index + 1}`;
+                    btn.disabled = true;
+                    btn.style.backgroundColor = '';
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                }
+            });
             return;
         }
 
@@ -211,19 +228,45 @@ class UIManager {
 
         this.elements.choicesDisplay.innerHTML = html;
 
-        // Update choice button labels
+        // Update choice button labels and styling
         this.elements.choiceButtons.forEach((btn, index) => {
             if (btn) {
                 if (index < choices.length) {
-                    btn.textContent = `${index + 1}️⃣ ${choices[index].text.substring(0, 20)}...`;
+                    const choiceText = choices[index].text;
+                    const shortText = choiceText.length > 15 ? 
+                        choiceText.substring(0, 15) + '...' : choiceText;
+                    btn.textContent = `${index + 1}️⃣ ${shortText}`;
+                    btn.disabled = false;
+                    
+                    // Highlight if this is the selected choice
+                    if (index === this.app.gameState.currentSelection) {
+                        btn.style.backgroundColor = '#004400';
+                        btn.style.borderColor = '#ffff00';
+                        btn.style.color = '#ffff00';
+                    } else {
+                        btn.style.backgroundColor = '';
+                        btn.style.borderColor = '';
+                        btn.style.color = '';
+                    }
                 } else {
                     btn.textContent = `${index + 1}️⃣ Choice ${index + 1}`;
+                    btn.disabled = true;
+                    btn.style.backgroundColor = '';
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
                 }
             }
         });
+
+        console.log(`🎨 Updated choices display with ${choices.length} choices`);
     }
 
     updateChoiceSelection(selectedIndex) {
+        // Update the game state
+        if (this.app.gameState) {
+            this.app.gameState.currentSelection = selectedIndex;
+        }
+        
         // Update visual selection in choices display
         const choiceItems = this.elements.choicesDisplay.querySelectorAll('.choice-item');
         choiceItems.forEach((item, index) => {
@@ -233,6 +276,23 @@ class UIManager {
                 item.classList.remove('selected');
             }
         });
+
+        // Update choice button styling to show which is selected
+        this.elements.choiceButtons.forEach((btn, index) => {
+            if (btn) {
+                if (index === selectedIndex && index < this.app.gameState.currentChoices.length) {
+                    btn.style.backgroundColor = '#004400';  // Highlight selected
+                    btn.style.borderColor = '#ffff00';
+                    btn.style.color = '#ffff00';
+                } else {
+                    btn.style.backgroundColor = '';  // Reset to default
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                }
+            }
+        });
+
+        console.log(`🎨 Updated choice selection to: ${selectedIndex}`);
     }
 
     updateLog(messageLog) {
@@ -273,9 +333,15 @@ class UIManager {
     flashButton(buttonId, duration = 200) {
         const button = document.getElementById(buttonId);
         if (button) {
+            const originalBg = button.style.backgroundColor;
+            const originalBorder = button.style.borderColor;
+            
             button.style.backgroundColor = '#006600';
+            button.style.borderColor = '#44ff44';
+            
             setTimeout(() => {
-                button.style.backgroundColor = '';
+                button.style.backgroundColor = originalBg;
+                button.style.borderColor = originalBorder;
             }, duration);
         }
     }

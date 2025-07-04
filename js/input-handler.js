@@ -68,7 +68,7 @@ class InputHandler {
 
         // Handle different key inputs
         switch (event.key) {
-            // Navigation - send commands to Presenter
+            // Navigation
             case 'ArrowUp':
                 this.app.navigateChoice('up');
                 this.flashButtonFeedback('nav-up');
@@ -92,7 +92,7 @@ class InputHandler {
             // Primary actions
             case 'Enter':
                 if (this.app.gameState.currentChoices.length > 0) {
-                    // Make the currently selected choice
+                    // Select the currently highlighted choice
                     this.app.makeChoice(this.app.gameState.currentSelection);
                     this.flashButtonFeedback(`choice-${this.app.gameState.currentSelection + 1}`);
                 } else {
@@ -111,29 +111,29 @@ class InputHandler {
                 }
                 break;
 
-            // Direct choice selection - FIXED to work properly
+            // Direct choice shortcuts
             case '1':
                 if (this.app.gameState.currentChoices.length >= 1) {
-                    this.app.makeChoice(0); // Select choice 1 (index 0)
+                    this.app.makeChoice(0);
                     this.flashButtonFeedback('choice-1');
                 }
                 break;
 
             case '2':
                 if (this.app.gameState.currentChoices.length >= 2) {
-                    this.app.makeChoice(1); // Select choice 2 (index 1)
+                    this.app.makeChoice(1);
                     this.flashButtonFeedback('choice-2');
                 }
                 break;
 
             case '3':
                 if (this.app.gameState.currentChoices.length >= 3) {
-                    this.app.makeChoice(2); // Select choice 3 (index 2)
+                    this.app.makeChoice(2);
                     this.flashButtonFeedback('choice-3');
                 }
                 break;
 
-            // Minigame controls (only when minigame active)
+            // Minigame controls
             case 'w':
             case 'W':
                 if (this.app.gameState.minigameActive) {

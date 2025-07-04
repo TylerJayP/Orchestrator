@@ -3,6 +3,7 @@ const CONFIG = {
     // MQTT Settings - Updated to match Presenter app
     MQTT: {
         PRIMARY_BROKER: 'broker.emqx.io',     // Same as Presenter app
+        FALLBACK_BROKER: 'broker.emqx.io',   // Fallback if primary fails
         PORT: 8083,
         SECURE_PORT: 8084,
         USE_SSL: false,
