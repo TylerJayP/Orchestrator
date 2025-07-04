@@ -175,10 +175,11 @@ class WhiskersOrchestrator {
         this.gameState.currentChoices = message.choices || [];
         this.gameState.currentSelection = message.currentSelection || 0;
         
+        // Update UI to show choices and current selection
         this.modules.ui.updateChoices(this.gameState.currentChoices);
         this.modules.ui.updateChoiceSelection(this.gameState.currentSelection);
         
-        this.log(`${message.choices.length} choices available`, 'presenter');
+        this.log(`${message.choices.length} choices available, selection: ${this.gameState.currentSelection + 1}`, 'presenter');
     }
 
     handleReadyForInput(message) {
@@ -225,7 +226,10 @@ class WhiskersOrchestrator {
     }
 
     makeChoice(choiceIndex) {
-        if (!this.canSendInput() || choiceIndex >= this.gameState.currentChoices.length) return;
+        if (!this.canSendInput() || choiceIndex >= this.gameState.currentChoices.length) {
+            this.log(`Cannot select choice ${choiceIndex + 1} - invalid or not available`, 'error');
+            return;
+        }
 
         const message = {
             type: 'make_choice',
@@ -234,7 +238,7 @@ class WhiskersOrchestrator {
         };
 
         this.sendMQTTMessage(message);
-        this.log(`Sent: Choice ${choiceIndex + 1}`, 'mqtt');
+        this.log(`Sent: Select choice ${choiceIndex + 1}: ${this.gameState.currentChoices[choiceIndex]?.text}`, 'mqtt');
     }
 
     navigateChoice(direction) {

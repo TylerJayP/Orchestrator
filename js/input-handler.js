@@ -68,7 +68,7 @@ class InputHandler {
 
         // Handle different key inputs
         switch (event.key) {
-            // Navigation
+            // Navigation - send commands to Presenter
             case 'ArrowUp':
                 this.app.navigateChoice('up');
                 this.flashButtonFeedback('nav-up');
@@ -92,6 +92,7 @@ class InputHandler {
             // Primary actions
             case 'Enter':
                 if (this.app.gameState.currentChoices.length > 0) {
+                    // Make the currently selected choice
                     this.app.makeChoice(this.app.gameState.currentSelection);
                     this.flashButtonFeedback(`choice-${this.app.gameState.currentSelection + 1}`);
                 } else {
@@ -110,49 +111,63 @@ class InputHandler {
                 }
                 break;
 
-            // Choice shortcuts
+            // Direct choice selection - FIXED to work properly
             case '1':
-                this.app.makeChoice(0);
-                this.flashButtonFeedback('choice-1');
+                if (this.app.gameState.currentChoices.length >= 1) {
+                    this.app.makeChoice(0); // Select choice 1 (index 0)
+                    this.flashButtonFeedback('choice-1');
+                }
                 break;
 
             case '2':
-                this.app.makeChoice(1);
-                this.flashButtonFeedback('choice-2');
+                if (this.app.gameState.currentChoices.length >= 2) {
+                    this.app.makeChoice(1); // Select choice 2 (index 1)
+                    this.flashButtonFeedback('choice-2');
+                }
                 break;
 
             case '3':
-                this.app.makeChoice(2);
-                this.flashButtonFeedback('choice-3');
+                if (this.app.gameState.currentChoices.length >= 3) {
+                    this.app.makeChoice(2); // Select choice 3 (index 2)
+                    this.flashButtonFeedback('choice-3');
+                }
                 break;
 
-            // Minigame controls
+            // Minigame controls (only when minigame active)
             case 'w':
             case 'W':
-                this.app.sendMinigameInput('w');
-                this.flashButtonFeedback('game-w');
-                this.setupRepeatInput(() => this.app.sendMinigameInput('w'));
+                if (this.app.gameState.minigameActive) {
+                    this.app.sendMinigameInput('w');
+                    this.flashButtonFeedback('game-w');
+                    this.setupRepeatInput(() => this.app.sendMinigameInput('w'));
+                }
                 break;
 
             case 'a':
             case 'A':
-                this.app.sendMinigameInput('a');
-                this.flashButtonFeedback('game-a');
-                this.setupRepeatInput(() => this.app.sendMinigameInput('a'));
+                if (this.app.gameState.minigameActive) {
+                    this.app.sendMinigameInput('a');
+                    this.flashButtonFeedback('game-a');
+                    this.setupRepeatInput(() => this.app.sendMinigameInput('a'));
+                }
                 break;
 
             case 's':
             case 'S':
-                this.app.sendMinigameInput('s');
-                this.flashButtonFeedback('game-s');
-                this.setupRepeatInput(() => this.app.sendMinigameInput('s'));
+                if (this.app.gameState.minigameActive) {
+                    this.app.sendMinigameInput('s');
+                    this.flashButtonFeedback('game-s');
+                    this.setupRepeatInput(() => this.app.sendMinigameInput('s'));
+                }
                 break;
 
             case 'd':
             case 'D':
-                this.app.sendMinigameInput('d');
-                this.flashButtonFeedback('game-d');
-                this.setupRepeatInput(() => this.app.sendMinigameInput('d'));
+                if (this.app.gameState.minigameActive) {
+                    this.app.sendMinigameInput('d');
+                    this.flashButtonFeedback('game-d');
+                    this.setupRepeatInput(() => this.app.sendMinigameInput('d'));
+                }
                 break;
 
             // Utility

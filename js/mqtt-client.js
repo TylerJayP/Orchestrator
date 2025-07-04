@@ -56,11 +56,15 @@ class MQTTClient {
             console.warn('Primary broker failed, trying fallback:', primaryError);
             
             try {
-                // Try fallback broker
-                let fallbackUrl = this.buildBrokerUrl(CONFIG.MQTT.FALLBACK_BROKER, CONFIG.MQTT.PORT);
-                console.log(`📡 Connecting to fallback broker: ${fallbackUrl}`);
-                
-                await this.attemptConnection(fallbackUrl);
+                // Try fallback broker if configured
+                if (CONFIG.MQTT.FALLBACK_BROKER) {
+                    let fallbackUrl = this.buildBrokerUrl(CONFIG.MQTT.FALLBACK_BROKER, CONFIG.MQTT.PORT);
+                    console.log(`📡 Connecting to fallback broker: ${fallbackUrl}`);
+                    
+                    await this.attemptConnection(fallbackUrl);
+                } else {
+                    throw primaryError;
+                }
                 
             } catch (fallbackError) {
                 console.error('Both brokers failed:', fallbackError);
@@ -115,6 +119,11 @@ class MQTTClient {
 
             // Send queued messages
             this.sendQueuedMessages();
+
+            // Request current status from Presenter after a brief delay
+            setTimeout(() => {
+                this.requestPresenterStatus();
+            }, 1000);
 
             this.app.log('MQTT connected successfully', 'success');
         });
@@ -237,6 +246,15 @@ class MQTTClient {
         }
     }
 
+    requestPresenterStatus() {
+        console.log('📡 Requesting status from Presenter...');
+        this.publish({
+            type: 'status_request',
+            timestamp: new Date().toISOString(),
+            requestId: Math.random().toString(36).substr(2, 9)
+        });
+    }
+
     handleConnectionError(error) {
         console.error('📡 Connection error:', error);
         this.connected = false;
@@ -303,7 +321,7 @@ class MQTTClient {
             reconnectAttempts: this.reconnectAttempts,
             queuedMessages: this.messageQueue.length,
             primaryBroker: CONFIG.MQTT.PRIMARY_BROKER,
-            fallbackBroker: CONFIG.MQTT.FALLBACK_BROKER
+            fallbackBroker: CONFIG.MQTT.FALLBACK_BROKER || 'None'
         };
     }
 }
