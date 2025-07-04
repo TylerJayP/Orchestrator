@@ -1,0 +1,439 @@
+/* 80s Retro Terminal Styling for Orchestrator */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: linear-gradient(135deg, #000000 0%, #001122 100%);
+    color: #00ff00;
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.app-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    min-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Header Styling */
+.header {
+    text-align: center;
+    border: 2px solid #00ff00;
+    padding: 20px;
+    background: linear-gradient(135deg, #001100 0%, #002200 100%);
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+.main-title {
+    color: #ffff00;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px #ffff00;
+    letter-spacing: 2px;
+}
+
+.subtitle {
+    color: #00aaaa;
+    font-size: 16px;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
+}
+
+.connection-status {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    font-size: 12px;
+}
+
+#mqtt-status, #presenter-status {
+    padding: 5px 10px;
+    border: 1px solid #004400;
+    background: rgba(0, 255, 0, 0.1);
+}
+
+/* Control Area */
+.control-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    flex: 1;
+}
+
+/* Panel Styling */
+.status-panel, .control-panel, .choices-panel {
+    border: 2px solid #00ff00;
+    background: rgba(0, 255, 0, 0.05);
+    padding: 15px;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+}
+
+.status-panel h3, .control-panel h3, .choices-panel h3 {
+    color: #ffff00;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 16px;
+    border-bottom: 1px solid #004400;
+    padding-bottom: 8px;
+}
+
+/* Status Info */
+.status-info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #004400;
+}
+
+.status-label {
+    color: #00aa00;
+    font-weight: bold;
+}
+
+.status-value {
+    color: #ffff00;
+}
+
+/* Control Groups */
+.control-group {
+    margin-bottom: 20px;
+}
+
+.control-group h4 {
+    color: #00aaaa;
+    margin-bottom: 10px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.button-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.minigame-grid {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-areas: 
+        ". w ."
+        "a s d"
+        "space space space";
+}
+
+#game-w { grid-area: w; }
+#game-a { grid-area: a; }
+#game-s { grid-area: s; }
+#game-d { grid-area: d; }
+#game-space { grid-area: space; }
+
+/* Button Styling */
+.control-btn {
+    background: #002200;
+    border: 2px solid #00ff00;
+    color: #00ff00;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.control-btn:hover {
+    background: #004400;
+    color: #ffff00;
+    border-color: #ffff00;
+    box-shadow: 0 0 10px rgba(255, 255, 0, 0.3);
+    transform: translateY(-1px);
+}
+
+.control-btn:active {
+    background: #006600;
+    transform: translateY(1px);
+}
+
+.control-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #111111;
+    border-color: #333333;
+    color: #666666;
+    transform: none;
+}
+
+.control-btn.primary {
+    border-color: #00ffff;
+    color: #00ffff;
+}
+
+.control-btn.primary:hover {
+    background: #004444;
+    border-color: #44ffff;
+    color: #44ffff;
+}
+
+.control-btn.danger {
+    border-color: #ff4444;
+    color: #ff4444;
+}
+
+.control-btn.danger:hover {
+    background: #440000;
+    border-color: #ff6666;
+    color: #ff6666;
+}
+
+.control-btn.small {
+    padding: 5px 10px;
+    font-size: 10px;
+}
+
+/* Choices Display */
+.choices-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.choice-item {
+    padding: 10px;
+    margin-bottom: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #004400;
+    border-radius: 3px;
+}
+
+.choice-item.selected {
+    border-color: #ffff00;
+    background: rgba(255, 255, 0, 0.1);
+}
+
+.choice-index {
+    color: #00ffff;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.choice-text {
+    color: #00ff00;
+}
+
+.no-choices {
+    text-align: center;
+    color: #666666;
+    font-style: italic;
+    padding: 20px;
+}
+
+/* Input Panel */
+.input-panel {
+    grid-column: 1 / -1;
+    border: 2px solid #0088ff;
+    background: rgba(0, 136, 255, 0.05);
+    padding: 15px;
+}
+
+.input-panel h3 {
+    color: #0088ff;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.input-methods {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-bottom: 15px;
+}
+
+.input-method {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #0088ff;
+    cursor: pointer;
+}
+
+.input-method input[type="radio"] {
+    accent-color: #0088ff;
+}
+
+.keyboard-info {
+    text-align: center;
+}
+
+.keyboard-info h4 {
+    color: #00aaff;
+    margin-bottom: 10px;
+}
+
+.shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    font-size: 11px;
+}
+
+.shortcuts span {
+    padding: 4px 8px;
+    background: rgba(0, 136, 255, 0.1);
+    border: 1px solid #004488;
+    border-radius: 3px;
+}
+
+/* Log Panel */
+.log-panel {
+    grid-column: 1 / -1;
+    border: 2px solid #888888;
+    background: rgba(136, 136, 136, 0.05);
+    padding: 15px;
+    max-height: 300px;
+}
+
+.log-panel h3 {
+    color: #aaaaaa;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.log-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.log-display {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #444444;
+    padding: 10px;
+    height: 150px;
+    overflow-y: auto;
+    font-size: 11px;
+}
+
+.log-entry {
+    margin-bottom: 3px;
+    padding: 2px 0;
+    border-bottom: 1px solid #222222;
+}
+
+.log-entry.system { color: #888888; }
+.log-entry.mqtt { color: #0088ff; }
+.log-entry.presenter { color: #00ff00; }
+.log-entry.error { color: #ff4444; }
+.log-entry.success { color: #44ff44; }
+
+.log-timestamp {
+    color: #666666;
+    font-size: 10px;
+}
+
+/* Modal Styling */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: #001100;
+    border: 2px solid #00ff00;
+    padding: 30px;
+    border-radius: 8px;
+    min-width: 400px;
+    box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+}
+
+.modal-content h3 {
+    color: #ffff00;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.connection-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.connection-form label {
+    color: #00aa00;
+    font-weight: bold;
+}
+
+.connection-form input {
+    background: #000000;
+    border: 1px solid #004400;
+    color: #00ff00;
+    padding: 8px;
+    font-family: 'Courier New', monospace;
+    border-radius: 3px;
+}
+
+.connection-form input:focus {
+    outline: none;
+    border-color: #00aa00;
+    box-shadow: 0 0 5px rgba(0, 170, 0, 0.3);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .control-area {
+        grid-template-columns: 1fr;
+    }
+    
+    .button-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .input-methods {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .shortcuts {
+        flex-direction: column;
+        align-items: center;
+    }
+}
