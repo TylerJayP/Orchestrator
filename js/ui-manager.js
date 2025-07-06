@@ -1,4 +1,4 @@
-// UI Manager for Whiskers Orchestrator
+// Complete Updated UI Manager for Whiskers Orchestrator - WITH MINIGAME FIXES
 class UIManager {
     constructor(app) {
         this.app = app;
@@ -130,6 +130,11 @@ class UIManager {
                 awaitingText += ` (${gameState.currentSelection + 1}/${gameState.currentChoices.length})`;
             }
             
+            // Add minigame indicator
+            if (gameState.minigameActive) {
+                awaitingText += ' 🎮';
+            }
+            
             this.elements.awaitingInput.textContent = awaitingText;
         }
     }
@@ -158,14 +163,18 @@ class UIManager {
         }
     }
 
+    // UPDATED: Enhanced input state management with proper minigame handling
     updateInputState(context, awaitingInputType) {
         // Enable/disable buttons based on connection and context
         const connected = this.app.gameState.connected;
+        const minigameActive = this.app.gameState.minigameActive;
+        
+        console.log(`🎨 Updating input state - Context: ${context}, Type: ${awaitingInputType}, Minigame: ${minigameActive}`);
         
         // Primary buttons
         if (this.elements.proceedBtn) {
             this.elements.proceedBtn.disabled = !connected || 
-                (awaitingInputType !== 'proceed' && context !== 'story');
+                (awaitingInputType !== 'proceed' && context !== 'story') || minigameActive;
         }
 
         if (this.elements.resetBtn) {
@@ -177,23 +186,49 @@ class UIManager {
             if (btn) {
                 btn.disabled = !connected || 
                     (awaitingInputType !== 'choice' && context !== 'choices') ||
-                    index >= this.app.gameState.currentChoices.length;
+                    index >= this.app.gameState.currentChoices.length ||
+                    minigameActive; // Disable during minigames
             }
         });
 
         // Navigation buttons
         Object.values(this.elements.navButtons).forEach(btn => {
             if (btn) {
-                btn.disabled = !connected;
+                btn.disabled = !connected || minigameActive; // Disable during minigames
             }
         });
 
-        // Minigame buttons
+        // MINIGAME BUTTONS - CRITICAL FIX
         Object.values(this.elements.minigameButtons).forEach(btn => {
             if (btn) {
-                btn.disabled = !connected || !this.app.gameState.minigameActive;
+                const wasDisabled = btn.disabled;
+                btn.disabled = !connected || !minigameActive;
+                
+                // Visual feedback when enabling/disabling
+                if (wasDisabled && !btn.disabled) {
+                    // Just enabled - add glow effect
+                    btn.style.boxShadow = '0 0 15px #ffff00, inset 0 0 15px rgba(255, 255, 0, 0.2)';
+                    btn.style.borderColor = '#ffff00';
+                    btn.style.color = '#ffff00';
+                    btn.style.backgroundColor = 'rgba(255, 255, 0, 0.1)';
+                    console.log(`🎮 Enabled minigame button: ${btn.id}`);
+                } else if (!wasDisabled && btn.disabled) {
+                    // Just disabled - remove glow effect
+                    btn.style.boxShadow = '';
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                    btn.style.backgroundColor = '';
+                    console.log(`🎮 Disabled minigame button: ${btn.id}`);
+                }
             }
         });
+        
+        // Update status display
+        if (minigameActive) {
+            console.log('🎮 MINIGAME CONTROLS ENABLED - WASD + SPACE active!');
+        } else {
+            console.log('🎮 Minigame controls disabled - story controls active');
+        }
     }
 
     updateChoices(choices) {
@@ -217,43 +252,28 @@ class UIManager {
 
         let html = '';
         choices.forEach((choice, index) => {
-            const selectedClass = index === this.app.gameState.currentSelection ? 'selected' : '';
+            const selectedClass = index === this.app.gameState.currentSelection ? 
+                'choice-item selected' : 'choice-item';
             html += `
-                <div class="choice-item ${selectedClass}">
-                    <span class="choice-index">${index + 1}.</span>
-                    <span class="choice-text">${choice.text}</span>
+                <div class="${selectedClass}" data-index="${index}">
+                    <span class="choice-number">${index + 1}.</span>
+                    <span class="choice-text">${choice.text || choice}</span>
                 </div>
             `;
         });
 
         this.elements.choicesDisplay.innerHTML = html;
 
-        // Update choice button labels and styling
+        // Update choice buttons
         this.elements.choiceButtons.forEach((btn, index) => {
             if (btn) {
                 if (index < choices.length) {
-                    const choiceText = choices[index].text;
-                    const shortText = choiceText.length > 15 ? 
-                        choiceText.substring(0, 15) + '...' : choiceText;
-                    btn.textContent = `${index + 1}️⃣ ${shortText}`;
-                    btn.disabled = false;
-                    
-                    // Highlight if this is the selected choice
-                    if (index === this.app.gameState.currentSelection) {
-                        btn.style.backgroundColor = '#004400';
-                        btn.style.borderColor = '#ffff00';
-                        btn.style.color = '#ffff00';
-                    } else {
-                        btn.style.backgroundColor = '';
-                        btn.style.borderColor = '';
-                        btn.style.color = '';
-                    }
+                    const choiceText = choices[index].text || choices[index];
+                    btn.textContent = `${index + 1}️⃣ ${choiceText.substring(0, 30)}${choiceText.length > 30 ? '...' : ''}`;
+                    btn.disabled = !this.app.gameState.connected || this.app.gameState.minigameActive;
                 } else {
                     btn.textContent = `${index + 1}️⃣ Choice ${index + 1}`;
                     btn.disabled = true;
-                    btn.style.backgroundColor = '';
-                    btn.style.borderColor = '';
-                    btn.style.color = '';
                 }
             }
         });
@@ -262,12 +282,9 @@ class UIManager {
     }
 
     updateChoiceSelection(selectedIndex) {
-        // Update the game state
-        if (this.app.gameState) {
-            this.app.gameState.currentSelection = selectedIndex;
-        }
-        
-        // Update visual selection in choices display
+        if (!this.elements.choicesDisplay) return;
+
+        // Update choice items highlighting
         const choiceItems = this.elements.choicesDisplay.querySelectorAll('.choice-item');
         choiceItems.forEach((item, index) => {
             if (index === selectedIndex) {
@@ -316,6 +333,57 @@ class UIManager {
         }
     }
 
+    // NEW: Minigame-specific UI methods
+    flashMinigameButtons() {
+        console.log('🎮 Flashing minigame buttons for visual feedback');
+        
+        Object.values(this.elements.minigameButtons).forEach(btn => {
+            if (btn && !btn.disabled) {
+                const originalStyles = {
+                    backgroundColor: btn.style.backgroundColor,
+                    color: btn.style.color,
+                    transform: btn.style.transform
+                };
+                
+                // Flash effect
+                btn.style.backgroundColor = '#ffff00';
+                btn.style.color = '#000000';
+                btn.style.transform = 'scale(1.1)';
+                
+                setTimeout(() => {
+                    btn.style.backgroundColor = originalStyles.backgroundColor;
+                    btn.style.color = originalStyles.color;
+                    btn.style.transform = originalStyles.transform;
+                }, 300);
+            }
+        });
+    }
+
+    // ENHANCED: Visual feedback method
+    flashButton(buttonId, duration = 200) {
+        const button = document.getElementById(buttonId);
+        if (button && !button.disabled) {
+            const originalStyles = {
+                backgroundColor: button.style.backgroundColor,
+                borderColor: button.style.borderColor,
+                transform: button.style.transform
+            };
+            
+            // Flash effect for feedback
+            button.style.backgroundColor = '#006600';
+            button.style.borderColor = '#44ff44';
+            button.style.transform = 'scale(0.95)';
+            
+            setTimeout(() => {
+                button.style.backgroundColor = originalStyles.backgroundColor;
+                button.style.borderColor = originalStyles.borderColor;
+                button.style.transform = originalStyles.transform;
+            }, duration);
+            
+            console.log(`🎮 Flashed button: ${buttonId}`);
+        }
+    }
+
     // Modal Management
     showConnectionModal() {
         if (this.elements.connectionModal) {
@@ -330,22 +398,6 @@ class UIManager {
     }
 
     // Visual Feedback
-    flashButton(buttonId, duration = 200) {
-        const button = document.getElementById(buttonId);
-        if (button) {
-            const originalBg = button.style.backgroundColor;
-            const originalBorder = button.style.borderColor;
-            
-            button.style.backgroundColor = '#006600';
-            button.style.borderColor = '#44ff44';
-            
-            setTimeout(() => {
-                button.style.backgroundColor = originalBg;
-                button.style.borderColor = originalBorder;
-            }, duration);
-        }
-    }
-
     showNotification(message, type = 'info', duration = 3000) {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
@@ -386,4 +438,9 @@ class UIManager {
     isInitialized() {
         return this.initialized;
     }
+}
+
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = UIManager;
 }

@@ -1,4 +1,4 @@
-// Main Application Controller for Whiskers Orchestrator
+// Complete Orchestrator app.js - All fixes including enhanced reset functionality
 class WhiskersOrchestrator {
     constructor() {
         this.gameState = {
@@ -83,13 +83,16 @@ class WhiskersOrchestrator {
             this.scrollStory('down');
         });
 
-        // Minigame buttons
+        // Minigame buttons - FIXED EVENT LISTENERS
         const minigameInputs = ['w', 'a', 's', 'd', 'space'];
         minigameInputs.forEach(input => {
             const buttonId = input === 'space' ? 'game-space' : `game-${input}`;
-            document.getElementById(buttonId).addEventListener('click', () => {
-                this.sendMinigameInput(input);
-            });
+            const button = document.getElementById(buttonId);
+            if (button) {
+                button.addEventListener('click', () => {
+                    this.sendMinigameInput(input);
+                });
+            }
         });
 
         // Log controls
@@ -111,7 +114,7 @@ class WhiskersOrchestrator {
         });
     }
 
-    // MQTT Message Handling
+    // MQTT Message Handling - INCLUDES ALL MESSAGE TYPES
     handleMQTTMessage(message) {
         try {
             this.log(`Received: ${message.type}`, 'mqtt');
@@ -149,12 +152,27 @@ class WhiskersOrchestrator {
                     this.handleScrollStatus(message);
                     break;
 
+                case 'choice_made':
+                    // Optional: Handle choice confirmations from Presenter
+                    this.log(`Choice confirmed: ${message.choiceText}`, 'presenter');
+                    break;
+
+                case 'game_reset':
+                    this.handleGameReset(message);
+                    break;
+
+                case 'presenter_disconnected':
+                    this.handlePresenterDisconnected(message);
+                    break;
+
                 default:
                     this.log(`Unknown message type: ${message.type}`, 'error');
             }
 
-            // Update UI
-            this.modules.ui.updateStatus();
+            // Update UI after processing message
+            if (this.modules.ui) {
+                this.modules.ui.updateStatus();
+            }
 
         } catch (error) {
             console.error('Error handling MQTT message:', error);
@@ -163,12 +181,18 @@ class WhiskersOrchestrator {
     }
 
     handleChapterChanged(message) {
-        this.gameState.currentChapter = message.currentChapter;
+        // Handle both string and object currentChapter values
+        let chapterValue = message.currentChapter;
+        if (typeof chapterValue === 'object' && chapterValue !== null) {
+            chapterValue = chapterValue.id || chapterValue.name || 'Unknown Chapter';
+        }
+        
+        this.gameState.currentChapter = chapterValue;
         this.gameState.playerState = message.playerState || {};
         
-        this.log(`Chapter changed to: ${message.currentChapter}`, 'presenter');
+        this.log(`Chapter changed to: ${chapterValue}`, 'presenter');
         
-        // Clear choices when chapter changes
+        // Clear choices when chapter changes (unless hasChoices is true)
         if (!message.hasChoices) {
             this.gameState.currentChoices = [];
             this.modules.ui.updateChoices([]);
@@ -200,10 +224,54 @@ class WhiskersOrchestrator {
         this.log(`Choice ${message.choiceIndex + 1} selected: ${message.choiceText}`, 'presenter');
     }
 
+    // FIXED: Minigame status handling with proper UI updates
     handleMinigameStatus(message) {
-        this.gameState.minigameActive = message.status === 'started' || message.status === 'active';
+        // Update game state based on minigame status
+        const wasActive = this.gameState.minigameActive;
+        const isActive = message.status === 'started' || message.status === 'active' || message.status === 'progress';
+        this.gameState.minigameActive = isActive;
         
-        this.log(`Minigame ${message.status}: ${message.minigameId}`, 'presenter');
+        // CRITICAL: Update UI to enable/disable minigame controls when status changes
+        if (wasActive !== isActive && this.modules.ui) {
+            this.modules.ui.updateInputState(
+                isActive ? 'minigame' : 'story',
+                isActive ? 'minigame' : this.gameState.awaitingInputType
+            );
+        }
+        
+        // Enhanced logging with visual feedback
+        if (isActive && !wasActive) {
+            this.log(`🎮 MINIGAME STARTED: ${message.minigameId}`, 'success');
+            this.log(`🎮 Use WASD + SPACE to control the minigame!`, 'success');
+            
+            // Flash minigame buttons to show they're active
+            if (this.modules.ui && typeof this.modules.ui.flashMinigameButtons === 'function') {
+                setTimeout(() => this.modules.ui.flashMinigameButtons(), 100);
+            }
+        } else if (!isActive && wasActive) {
+            this.log(`🎮 Minigame ended: ${message.minigameId}`, 'presenter');
+        }
+        
+        // Handle specific statuses
+        switch (message.status) {
+            case 'started':
+                this.log(`🎮 Minigame controls are now ACTIVE!`, 'success');
+                break;
+            case 'completed':
+                this.log(`🎮 Minigame completed successfully!`, 'success');
+                break;
+            case 'failed':
+                this.log(`🎮 Minigame failed - try again!`, 'error');
+                break;
+            case 'error':
+                this.log(`🎮 Minigame error: ${message.result?.error || 'Unknown error'}`, 'error');
+                break;
+            case 'progress':
+                // Don't spam logs for progress updates
+                break;
+            default:
+                this.log(`🎮 Minigame ${message.status}: ${message.minigameId}`, 'presenter');
+        }
     }
 
     handleAudioStatus(message) {
@@ -218,16 +286,57 @@ class WhiskersOrchestrator {
         // Request status update after short delay
         setTimeout(() => {
             if (this.modules.mqtt && this.modules.mqtt.isConnected()) {
-                this.modules.mqtt.publish({
-                    type: 'status_request',
-                    timestamp: new Date().toISOString()
-                });
+                this.modules.mqtt.requestPresenterStatus();
             }
         }, 500);
     }
 
     handleScrollStatus(message) {
         this.log(`Scroll ${message.direction} - Top: ${message.atTop}, Bottom: ${message.atBottom}`, 'presenter');
+    }
+
+    handlePresenterDisconnected(message) {
+        this.gameState.presenterConnected = false;
+        this.gameState.minigameActive = false; // Disable minigame controls when presenter disconnects
+        this.modules.ui.updatePresenterStatus(false);
+        this.modules.ui.updateInputState('disconnected', null);
+        this.log(`Presenter disconnected: ${message.clientId}`, 'error');
+    }
+
+    // ENHANCED: Handle reset confirmations from Presenter
+    handleGameReset(message) {
+        if (message.success) {
+            this.log('✅ Game reset completed successfully!', 'success');
+            
+            // Ensure local state matches the reset Presenter
+            this.gameState.currentChapter = 'start';
+            this.gameState.currentChoices = [];
+            this.gameState.currentSelection = 0;
+            this.gameState.minigameActive = false;
+            this.gameState.awaitingInputType = 'proceed';
+            this.gameState.playerState = {
+                health: 100,
+                courage: 'Normal',
+                location: 'Home'
+            };
+            
+            // Update UI to reflect reset state
+            this.modules.ui.updateChoices([]);
+            this.modules.ui.updateInputState('story', 'proceed');
+            this.modules.ui.updateStatus();
+            
+            this.log('📖 Story reset to Chapter 1 - ready to begin adventure!', 'success');
+            
+            // Optional: Flash the proceed button to indicate what to do next
+            if (this.modules.ui && typeof this.modules.ui.flashButton === 'function') {
+                setTimeout(() => {
+                    this.modules.ui.flashButton('proceed-btn', 500);
+                }, 500);
+            }
+        } else {
+            this.log(`❌ Game reset failed: ${message.error || 'Unknown error'}`, 'error');
+            this.log('Try refreshing both applications if the issue persists', 'error');
+        }
     }
 
     // Action Methods
@@ -302,11 +411,20 @@ class WhiskersOrchestrator {
         };
 
         this.sendMQTTMessage(message);
-        this.log(`Sent: Scroll ${direction}`, 'mqtt');
+        this.log(`Scroll ${direction}`, 'mqtt');
     }
 
+    // FIXED: Minigame input method with proper validation and feedback
     sendMinigameInput(input) {
-        if (!this.canSendInput()) return;
+        if (!this.gameState.minigameActive) {
+            this.log(`🎮 Cannot send input '${input}' - no active minigame`, 'error');
+            return;
+        }
+
+        if (!this.canSendInput()) {
+            this.log(`🎮 Cannot send input '${input}' - not connected`, 'error');
+            return;
+        }
 
         const message = {
             type: 'minigame_input',
@@ -315,11 +433,23 @@ class WhiskersOrchestrator {
         };
 
         this.sendMQTTMessage(message);
-        this.log(`Sent: Minigame ${input.toUpperCase()}`, 'mqtt');
+        this.log(`🎮 Minigame input: ${input.toUpperCase()}`, 'mqtt');
+        
+        // Visual feedback
+        if (this.modules.ui && typeof this.modules.ui.flashButton === 'function') {
+            const buttonId = input === 'space' ? 'game-space' : `game-${input}`;
+            this.modules.ui.flashButton(buttonId);
+        }
     }
 
+    // ENHANCED: Reset story with confirmation system
     resetStory() {
-        if (!this.canSendInput()) return;
+        if (!this.canSendInput()) {
+            this.log('Cannot reset - not connected to Presenter', 'error');
+            return;
+        }
+
+        this.log('🔄 Sending reset command to Presenter...', 'system');
 
         const message = {
             type: 'reset_game',
@@ -327,9 +457,9 @@ class WhiskersOrchestrator {
         };
 
         this.sendMQTTMessage(message);
-        this.log('Sent: Reset story', 'mqtt');
+        this.log('Sent: Reset game', 'mqtt');
 
-        // Reset local state
+        // Reset local Orchestrator state immediately for responsive UI
         this.gameState.currentChapter = null;
         this.gameState.currentChoices = [];
         this.gameState.currentSelection = 0;
@@ -337,77 +467,48 @@ class WhiskersOrchestrator {
         this.gameState.awaitingInputType = null;
         this.gameState.minigameActive = false;
 
-        this.modules.ui.updateStatus();
+        // Update UI immediately
         this.modules.ui.updateChoices([]);
+        this.modules.ui.updateInputState('story', 'proceed');
+        this.modules.ui.updateStatus();
+        
+        this.log('🔄 Local state reset - waiting for Presenter confirmation...', 'system');
     }
 
     // Utility Methods
+    canSendInput() {
+        return this.gameState.connected && this.gameState.presenterConnected;
+    }
+
     sendMQTTMessage(message) {
         if (this.modules.mqtt && this.modules.mqtt.isConnected()) {
             this.modules.mqtt.publish(message);
         } else {
-            this.log('Cannot send - MQTT not connected', 'error');
+            this.log('Cannot send message - MQTT not connected', 'error');
         }
     }
 
-    canSendInput() {
-        const now = Date.now();
-        if (now - this.lastInputTime < CONFIG.INPUT.DEBOUNCE_TIME) {
-            return false; // Debounce
-        }
-        this.lastInputTime = now;
-
-        if (!this.gameState.connected) {
-            this.log('Cannot send - not connected to MQTT', 'error');
-            return false;
-        }
-
-        return true;
-    }
-
-    connectToMQTT() {
-        const broker = document.getElementById('broker-input').value;
-        const port = parseInt(document.getElementById('port-input').value);
-        const subscribeTopic = document.getElementById('subscribe-topic').value;
-        const publishTopic = document.getElementById('publish-topic').value;
-
-        // Update config
-        CONFIG.MQTT.PRIMARY_BROKER = broker;
-        CONFIG.MQTT.PORT = port;
-        CONFIG.TOPICS.SUBSCRIBE = subscribeTopic;
-        CONFIG.TOPICS.PUBLISH = publishTopic;
-
-        // Reconnect with new settings
-        this.modules.mqtt.connect();
-        this.modules.ui.hideConnectionModal();
-    }
-
-    // Logging
-    log(message, type = 'system') {
+    log(message, type = 'info') {
         const timestamp = new Date().toLocaleTimeString();
-        const logEntry = {
-            timestamp: timestamp,
-            message: message,
-            type: type
-        };
-
+        const logEntry = { timestamp, message, type };
+        
         this.messageLog.unshift(logEntry);
-
-        // Limit log size
         if (this.messageLog.length > CONFIG.UI.MAX_LOG_ENTRIES) {
-            this.messageLog = this.messageLog.slice(0, CONFIG.UI.MAX_LOG_ENTRIES);
+            this.messageLog.pop();
         }
-
-        // Update UI
-        this.modules.ui.updateLog(this.messageLog);
-
-        // Console log for debugging
+        
         console.log(`[${type.toUpperCase()}] ${message}`);
+        
+        if (this.modules.ui) {
+            this.modules.ui.updateLog(this.messageLog);
+        }
     }
 
     clearLog() {
         this.messageLog = [];
-        this.modules.ui.updateLog([]);
+        if (this.modules.ui) {
+            this.modules.ui.updateLog(this.messageLog);
+        }
         this.log('Log cleared', 'system');
     }
 
@@ -415,37 +516,48 @@ class WhiskersOrchestrator {
         const logText = this.messageLog.map(entry => 
             `[${entry.timestamp}] ${entry.type.toUpperCase()}: ${entry.message}`
         ).join('\n');
-
+        
         const blob = new Blob([logText], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
-        
         const a = document.createElement('a');
         a.href = url;
-        a.download = `whiskers-orchestrator-log-${new Date().toISOString().slice(0, 10)}.txt`;
-        document.body.appendChild(a);
+        a.download = `orchestrator-log-${new Date().getTime()}.txt`;
         a.click();
-        document.body.removeChild(a);
-        
         URL.revokeObjectURL(url);
+        
         this.log('Log exported', 'system');
     }
 
-    // Getters
-    getGameState() {
-        return { ...this.gameState };
+    connectToMQTT() {
+        if (this.modules.mqtt) {
+            this.modules.mqtt.connect();
+        }
     }
 
-    isInitialized() {
-        return this.initialized;
+    getCurrentState() {
+        return {
+            connected: this.gameState.connected,
+            presenterConnected: this.gameState.presenterConnected,
+            currentChapter: this.gameState.currentChapter,
+            currentChoices: this.gameState.currentChoices,
+            currentSelection: this.gameState.currentSelection,
+            minigameActive: this.gameState.minigameActive,
+            awaitingInputType: this.gameState.awaitingInputType
+        };
     }
 }
 
-// Initialize app when DOM is ready
+// Initialize the application
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        window.orchestrator = new WhiskersOrchestrator();
-        await window.orchestrator.initialize();
+        window.orchestratorApp = new WhiskersOrchestrator();
+        await window.orchestratorApp.initialize();
     } catch (error) {
-        console.error('Failed to initialize orchestrator:', error);
+        console.error('❌ Failed to start Orchestrator:', error);
     }
 });
+
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = WhiskersOrchestrator;
+}
